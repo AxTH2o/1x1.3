@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
+contract EightBTC is ERC20, Ownable {
+    IERC20 public btcToken; // BTC en formato ERC-20 (ej: WBTC)
+    AggregatorV3Interface public btcUsdFeed;
+
+    uint256 public constant REWARD_AMOUNT = 13 * 10 ** 17; // 1.3 8BTC
+    uint256 public constant COMMISSION_BPS = 500; // 5% comisión
+
+    constructor(address _btcToken, address _btcUsdFeed) ERC20("8BTC", "8BTC") {
+        btcToken = IERC20(_btcToken);
+        btcUsdFeed = AggregatorV3Interface(_btcUsdFeed);
+    }
+
+    function getBTCPriceUSD() public view returns (uint256) {
+        (, int price,,,) = btcUsdFeed.latestRoundData();
+        require(price > 0, "Precio BTC inválido");
+        return uint256(price); // 8 decimales
+    }
+
+    function swapBTCfor8BTC(uint256 btcAmount) external {
+        require(btcAmount == 1 * 10 ** 8, "Solo se permite swap de 1 BTC");
+
+        // Validar que el valor de 1 BTC sea razonable (ej: mayor a $20,000)
+        uint256 btcPrice = getBTCPriceUSD();
+        require(btcPrice > 20_000_000_000, "Precio BTC demasiado bajo");
+
+        // Transferir BTC del usuario al contrato
+        require(btcToken.transferFrom(msg.sender, address(this), btcAmount), "Transferencia BTC fallida");
+
+        // Calcular comisión y retorno
+        uint256 commission = (btcAmount * COMMISSION_BPS) / 10000;
+        uint256 returnAmount = btcAmount - commission;
+
+        // Devolver BTC menos comisión
+        require(btcToken.transfer(msg.sender, returnAmount), "Retorno BTC fallido");
+
+        // Enviar comisión al owner
+        require(btcToken.transfer(owner(), commission), "Comisión fallida");
+
+        // Entregar 1.3 8BTC al usuario
+        _mint(msg.sender, REWARD_AMOUNT);
+    }
+}
