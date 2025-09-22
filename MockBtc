@@ -5,12 +5,16 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MockBTC is ERC20, Ownable {
-    constructor() ERC20("Mock BTC", "mBTC") {}
-
-    function decimals() public pure override returns (uint8) {
-        return 8; // Igual que BTC real
+    constructor() ERC20("Mock BTC", "mBTC") {
+        // 30 millones de tokens con 8 decimales
+        _mint(msg.sender, 30_000_000 * 10 ** 8);
     }
 
+    function decimals() public pure override returns (uint8) {
+        return 8;
+    }
+
+    // Función opcional para emitir más tokens si lo deseas
     function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
